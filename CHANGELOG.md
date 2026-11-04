@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.2] - 2026-11-04
+
+The same indigo and colours as the rest of the suite, computer included.
+
 ## [0.3.1] - 2026-11-04
 
 The app icon has the same indigo as Quire's and Vesper's.
