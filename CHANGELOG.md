@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.1] - 2026-11-04
+
+The app icon has the same indigo as Quire's and Vesper's.
+
 ## [0.3.0] - 2026-11-04
 
 ### Changed
