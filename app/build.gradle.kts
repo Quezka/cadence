@@ -1,8 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Release signing: from environment variables in CI, or from a keystore.properties file locally (never committed).
+val signing = Properties().apply {
+    rootDir.resolve("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+fun secret(name: String): String? = System.getenv(name) ?: signing.getProperty(name)
 
 android {
     namespace = "io.github.quezka.cadence"
@@ -15,8 +23,19 @@ android {
         versionCode = 100
         versionName = "0.1.0"
     }
+    signingConfigs {
+        create("release") {
+            secret("CADENCE_KEYSTORE")?.let { store ->
+                storeFile = file(store)
+                storePassword = secret("CADENCE_KEYSTORE_PASSWORD")
+                keyAlias = secret("CADENCE_KEY_ALIAS") ?: "cadence"
+                keyPassword = secret("CADENCE_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (secret("CADENCE_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
