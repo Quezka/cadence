@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -65,6 +64,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsTab(store: GymStore, exercises: List<Exercise>, version: Int) {
     val context = LocalContext.current
@@ -75,16 +75,20 @@ fun StatsTab(store: GymStore, exercises: List<Exercise>, version: Int) {
     val volume = Gym.weeklyVolume(history, today)
     val byMuscle = Gym.setsByMuscle(history, muscles::get, Gym.weekOf(today))
     val bests = Gym.bests(history).take(8)
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Text(stringResource(R.string.tab_stats), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize()) {
+    TopAppBar(title = { Text(stringResource(R.string.tab_stats)) })
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (history.isNotEmpty()) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(stringResource(R.string.stat_volume), "${volume.last().second / 1000} kg", Modifier.weight(1f))
+                StatTile(stringResource(R.string.stat_sets), byMuscle.sumOf { it.second }.toString(), Modifier.weight(1f))
+            }
         }
         item { BodyPanel(store, version) }
         if (history.isEmpty()) item { Hint(stringResource(R.string.stats_empty)) } else {
             item {
                 Panel(stringResource(R.string.volume_weeks)) {
                     WeekBars(volume)
-                    Hint("${volume.last().second / 1000} kg")
                 }
             }
             if (byMuscle.isNotEmpty()) item {
@@ -110,6 +114,7 @@ fun StatsTab(store: GymStore, exercises: List<Exercise>, version: Int) {
                 }
             }
         }
+    }
     }
 }
 

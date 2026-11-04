@@ -89,16 +89,24 @@ class StoreAndScreensTest {
         s.workout(past)!!.sets.forEach { s.updateSet(it.id, 60000, 8, true) }
         s.finish(past)
         clock += 86400
-        compose.setContent { CadenceTheme(dynamic = false) { CadenceRoot(s) } }
-        compose.onNodeWithText("Start a workout").assertIsDisplayed()
+        compose.setContent { CadenceTheme { CadenceRoot(s) } }
+        compose.onNodeWithContentDescription("Start a workout").assertIsDisplayed()
         shoot("train")
         compose.onNodeWithText("History").performClick()
         compose.onNodeWithText("Push").assertIsDisplayed()
         shoot("history")
         compose.onNodeWithText("Train").performClick()
-        compose.onNodeWithText("Start").performClick()
+        compose.onNodeWithContentDescription("Start").performClick()
         compose.onNodeWithText("Bench press").assertIsDisplayed()
         shoot("workout")
+        compose.onNodeWithContentDescription("Back").performClick()
+        shoot("train_resume")
+        compose.onNodeWithText("Exercises").performClick()
+        shoot("exercises")
+        compose.onNodeWithText("Stats").performClick()
+        shoot("stats")
+        compose.onNodeWithText("Train").performClick()
+        compose.onNodeWithText("Resume").performClick()
         compose.onNodeWithText("Finish").assertIsDisplayed()
     }
 
@@ -195,8 +203,8 @@ class StoreAndScreensTest {
     @Test fun aWorkoutLeftWithBackCanBeResumed() {
         val s = store()
         s.saveRoutine(null, "Push", listOf(RoutineItem(bench(s), 1, 8)))
-        compose.setContent { CadenceTheme(dynamic = false) { CadenceRoot(s) } }
-        compose.onNodeWithText("Start").performClick()
+        compose.setContent { CadenceTheme { CadenceRoot(s) } }
+        compose.onNodeWithContentDescription("Start").performClick()
         compose.onNodeWithText("Finish").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Resume").assertIsDisplayed()
@@ -207,7 +215,7 @@ class StoreAndScreensTest {
     @Test @Config(qualifiers = "w400dp-h860dp-night-xxhdpi") fun everyPageIsDarkInTheDarkTheme() {
         val s = store()
         val w = s.start("A"); s.updateSet(s.addSet(w, bench(s), 50000, 5), 50000, 5, true); s.finish(w)
-        compose.setContent { CadenceTheme(dynamic = false) { CadenceRoot(s) } }
+        compose.setContent { CadenceTheme { CadenceRoot(s) } }
         fun dark(name: String) {
             compose.waitForIdle()
             val view = compose.activity.window.decorView
@@ -220,7 +228,7 @@ class StoreAndScreensTest {
         compose.onNodeWithText("New routine").performClick()
         dark("routine_dark")
         compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithText("Start a workout").performClick()
+        compose.onNodeWithContentDescription("Start a workout").performClick()
         dark("workout_dark")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Stats").performClick()

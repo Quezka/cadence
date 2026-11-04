@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2026-11-04
+
+### Changed
+- **Cadence now looks like Quire and Vesper.** The same indigo palette on every phone instead of the wallpaper's colours, the same top bars, cards with a stripe of colour (one per muscle), summary tiles and round + button, and the same motion between pages.
+- A routine starts from its play button; tapping it opens it to edit.
+
 ## [0.2.0] - 2026-11-04
 
 ### Fixed

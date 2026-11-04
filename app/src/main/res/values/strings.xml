@@ -188,4 +188,8 @@
     <string name="ex_walking">Walking</string>
     <string name="ex_swimming">Swimming</string>
     <string name="ex_jump_rope">Jump rope</string>
+    <string name="stat_week">This week</string>
+    <string name="stat_streak">Weeks in a row</string>
+    <string name="stat_volume">Volume this week</string>
+    <string name="stat_sets">Sets this week</string>
 </resources>

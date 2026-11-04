@@ -2,18 +2,36 @@ package io.github.quezka.cadence.ui
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.quezka.cadence.R
 import io.github.quezka.cadence.domain.Exercise
@@ -100,9 +118,9 @@ fun muscleName(m: Muscle): Int = when (m) {
 
 @Composable
 fun Panel(title: String? = null, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             content()
         }
@@ -111,6 +129,60 @@ fun Panel(title: String? = null, modifier: Modifier = Modifier, content: @Compos
 
 @Composable
 fun Hint(text: String) = Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+@Composable
+fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(text, modifier.padding(top = 12.dp, bottom = 2.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+}
+
+/** A big number with a label, for summaries. */
+@Composable
+fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(modifier, shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AnimatedContent(value, transitionSpec = {
+                (slideInVertically { it } + fadeIn()).togetherWith(slideOutVertically { -it } + fadeOut())
+            }, label = "number") {
+                Text(it, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/** The row of a list: a card with a stripe of colour, like the agenda in Quire. */
+@Composable
+fun ListCard(title: String, meta: String, stripe: Color, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit = {}) {
+    val source = remember { MutableInteractionSource() }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().pressScale(source).then(
+            if (onClick != null) Modifier.clickable(source, null, onClick = onClick) else Modifier)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(4.dp).height(40.dp).background(stripe, RoundedCornerShape(2.dp)))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            trailing()
+        }
+    }
+}
+
+/** Each muscle's colour, from the same family as the course colours in Quire. */
+fun muscleColor(m: Muscle?): Color = Color(when (m) {
+    Muscle.CHEST -> 0xFFE5484D
+    Muscle.BACK -> 0xFF4466EE
+    Muscle.LEGS -> 0xFF12A594
+    Muscle.SHOULDERS -> 0xFFF5A524
+    Muscle.ARMS -> 0xFF8E4EC6
+    Muscle.CORE -> 0xFF0091FF
+    Muscle.CARDIO -> 0xFF30A46C
+    else -> 0xFF8D8D94
+})
 
 fun clock(seconds: Long): String = if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
     else "%d:%02d".format(seconds / 60, seconds % 60)

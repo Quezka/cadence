@@ -20,8 +20,8 @@ android {
         applicationId = "io.github.quezka.cadence"
         minSdk = 26
         targetSdk = 35
-        versionCode = 200
-        versionName = "0.2.0"
+        versionCode = 300
+        versionName = "0.3.0"
     }
     signingConfigs {
         create("release") {

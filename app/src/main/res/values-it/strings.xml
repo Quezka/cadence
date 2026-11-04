@@ -188,4 +188,8 @@
     <string name="ex_walking">Camminata</string>
     <string name="ex_swimming">Nuoto</string>
     <string name="ex_jump_rope">Salto con la corda</string>
+    <string name="stat_week">Questa settimana</string>
+    <string name="stat_streak">Settimane di fila</string>
+    <string name="stat_volume">Volume settimana</string>
+    <string name="stat_sets">Serie settimana</string>
 </resources>

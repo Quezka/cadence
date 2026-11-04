@@ -194,4 +194,8 @@
     <string name="ex_walking">Ходьба</string>
     <string name="ex_swimming">Плавание</string>
     <string name="ex_jump_rope">Скакалка</string>
+    <string name="stat_week">За неделю</string>
+    <string name="stat_streak">Недель подряд</string>
+    <string name="stat_volume">Объём за неделю</string>
+    <string name="stat_sets">Подходы за неделю</string>
 </resources>

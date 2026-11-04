@@ -3,7 +3,9 @@ package io.github.quezka.cadence.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,7 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -35,6 +39,10 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -48,7 +56,6 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,6 +86,7 @@ import io.github.quezka.cadence.domain.Gym
 import io.github.quezka.cadence.domain.Muscle
 import io.github.quezka.cadence.domain.Routine
 import io.github.quezka.cadence.domain.RoutineItem
+import io.github.quezka.cadence.ui.Motion.push
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -99,103 +107,135 @@ fun CadenceRoot(store: GymStore) {
     var settings by rememberSaveable { mutableStateOf(false) }
 
     val exercises = remember(version) { store.exercises() }
-    openWorkout?.let { id ->
-        WorkoutScreen(store, id, exercises, version) { openWorkout = null }
-        return
+    val screen = when {
+        openWorkout != null -> Screen.Workout(openWorkout!!)
+        settings -> Screen.Settings
+        detail != null -> Screen.Exercise(detail!!)
+        pastWorkout != null -> Screen.Past(pastWorkout!!)
+        newRoutine || editingRoutine != null -> Screen.Routine(editingRoutine)
+        else -> Screen.Home
     }
-    if (settings) {
-        SettingsScreen(store, version) { settings = false }
-        return
+    AnimatedContent(screen, transitionSpec = { push(forward = targetState != Screen.Home) }, label = "page") { shown ->
+        when (shown) {
+            is Screen.Workout -> WorkoutScreen(store, shown.id, exercises, version) { openWorkout = null }
+            Screen.Settings -> SettingsScreen(store, version) { settings = false }
+            is Screen.Exercise -> {
+                BackHandler { detail = null }
+                val exercise = exercises.firstOrNull { it.id == shown.id }
+                if (exercise == null) LaunchedEffect(Unit) { detail = null }
+                else ExerciseScreen(store, exercise, version) { detail = null }
+            }
+            is Screen.Past -> {
+                BackHandler { pastWorkout = null }
+                PastWorkoutScreen(store, shown.id, exercises, version, { pastWorkout = null }, { openWorkout = it }) { editingRoutine = it }
+            }
+            is Screen.Routine -> {
+                val close = { newRoutine = false; editingRoutine = null }
+                BackHandler { close() }
+                RoutineScreen(store, store.routines().firstOrNull { it.id == shown.id }, exercises, close)
+            }
+            Screen.Home -> Home(store, exercises, version, tab, { tab = it }, { openWorkout = it }, { newRoutine = true },
+                { editingRoutine = it }, { settings = true }, { pastWorkout = it }) { detail = it }
+        }
     }
-    detail?.let { id ->
-        BackHandler { detail = null }
-        val exercise = exercises.firstOrNull { it.id == id }
-        if (exercise == null) { detail = null; return }
-        ExerciseScreen(store, exercise, version) { detail = null }
-        return
-    }
-    pastWorkout?.let { id ->
-        BackHandler { pastWorkout = null }
-        PastWorkoutScreen(store, id, exercises, version, { pastWorkout = null }, { openWorkout = it }) { editingRoutine = it }
-        return
-    }
-    if (newRoutine || editingRoutine != null) {
-        val close = { newRoutine = false; editingRoutine = null }
-        BackHandler { close() }
-        RoutineScreen(store, store.routines().firstOrNull { it.id == editingRoutine }, exercises, close)
-        return
-    }
+}
+
+private sealed interface Screen {
+    data object Home : Screen
+    data object Settings : Screen
+    data class Workout(val id: Long) : Screen
+    data class Exercise(val id: Long) : Screen
+    data class Past(val id: Long) : Screen
+    data class Routine(val id: Long?) : Screen
+}
+
+@Composable
+private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: Tab, pick: (Tab) -> Unit, open: (Long) -> Unit, newRoutine: () -> Unit,
+                 editRoutine: (Long) -> Unit, settings: () -> Unit, openPast: (Long) -> Unit, openExercise: (Long) -> Unit) {
     Scaffold(bottomBar = {
         NavigationBar {
-            NavigationBarItem(tab == Tab.TRAIN, { tab = Tab.TRAIN }, { Icon(Icons.Filled.FitnessCenter, null) },
+            NavigationBarItem(tab == Tab.TRAIN, { pick(Tab.TRAIN) }, { Icon(Icons.Filled.FitnessCenter, null) },
                 label = { Text(stringResource(R.string.tab_train)) })
-            NavigationBarItem(tab == Tab.HISTORY, { tab = Tab.HISTORY }, { Icon(Icons.Filled.History, null) },
+            NavigationBarItem(tab == Tab.HISTORY, { pick(Tab.HISTORY) }, { Icon(Icons.Filled.History, null) },
                 label = { Text(stringResource(R.string.tab_history)) })
-            NavigationBarItem(tab == Tab.STATS, { tab = Tab.STATS }, { Icon(Icons.AutoMirrored.Filled.ShowChart, null) },
+            NavigationBarItem(tab == Tab.STATS, { pick(Tab.STATS) }, { Icon(Icons.AutoMirrored.Filled.ShowChart, null) },
                 label = { Text(stringResource(R.string.tab_stats)) })
-            NavigationBarItem(tab == Tab.EXERCISES, { tab = Tab.EXERCISES }, { Icon(Icons.AutoMirrored.Filled.List, null) },
+            NavigationBarItem(tab == Tab.EXERCISES, { pick(Tab.EXERCISES) }, { Icon(Icons.AutoMirrored.Filled.List, null) },
                 label = { Text(stringResource(R.string.tab_exercises)) })
         }
     }) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
-            when (tab) {
-                Tab.TRAIN -> TrainTab(store, version, { openWorkout = it }, { newRoutine = true }, { editingRoutine = it }) { settings = true }
-                Tab.HISTORY -> HistoryTab(store, exercises, version) { pastWorkout = it }
-                Tab.STATS -> StatsTab(store, exercises, version)
-                Tab.EXERCISES -> ExercisesTab(store, exercises) { detail = it }
+            AnimatedContent(tab, transitionSpec = { Motion.tabs() }, label = "tab") { shown ->
+                when (shown) {
+                    Tab.TRAIN -> TrainTab(store, exercises, version, open, newRoutine, editRoutine, settings)
+                    Tab.HISTORY -> HistoryTab(store, exercises, version, openPast)
+                    Tab.STATS -> StatsTab(store, exercises, version)
+                    Tab.EXERCISES -> ExercisesTab(store, exercises, openExercise)
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TrainTab(store: GymStore, version: Int, open: (Long) -> Unit, addRoutine: () -> Unit, editRoutine: (Long) -> Unit, settings: () -> Unit) {
+private fun TrainTab(store: GymStore, exercises: List<Exercise>, version: Int, open: (Long) -> Unit, addRoutine: () -> Unit, editRoutine: (Long) -> Unit, settings: () -> Unit) {
     val routines = remember(version) { store.routines() }
     val history = remember(version) { store.history(120) }
     val active = remember(version) { store.active() }
+    val muscles = exercises.associate { it.id to it.muscle }
     val today = LocalDate.now()
     val thisWeek = history.count { Gym.weekOf(it.day) == Gym.weekOf(today) }
     val streak = Gym.weekStreak(history.map { it.day }, today)
     val freeName = stringResource(R.string.free_workout)
     val copy = stringResource(R.string.copy_of, "%s")
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.app_name), Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
                 IconButton(onClick = settings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
-            }
-            Hint(listOfNotNull(pluralStringResource(R.plurals.workouts_this_week, thisWeek, thisWeek),
-                if (streak >= 2) stringResource(R.string.weeks_in_a_row, streak) else null).joinToString(" · "))
-        }
-        item {
-            // One at a time: you leave a workout with Back and must be able to find it again.
-            if (active != null) Panel(stringResource(R.string.resume_title)) {
-                Text(active.name, style = MaterialTheme.typography.bodyLarge)
-                Button(onClick = { open(active.id) }, Modifier.fillMaxWidth().height(56.dp)) {
-                    Text(stringResource(R.string.resume), style = MaterialTheme.typography.titleMedium)
+            })
+            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatTile(stringResource(R.string.stat_week), thisWeek.toString(), Modifier.weight(1f))
+                        StatTile(stringResource(R.string.stat_streak), streak.toString(), Modifier.weight(1f))
+                    }
                 }
-                Hint(stringResource(R.string.finish_first))
-            } else Button(onClick = { open(store.start(freeName)) }, Modifier.fillMaxWidth().height(56.dp)) {
-                Text(stringResource(R.string.start_free), style = MaterialTheme.typography.titleMedium)
-            }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.routines), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                TextButton(onClick = addRoutine) { Text(stringResource(R.string.new_routine)) }
-            }
-        }
-        if (routines.isEmpty()) item { Hint(stringResource(R.string.no_routines)) }
-        items(routines, key = { it.id }) { r ->
-            Panel {
-                Text(r.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Hint(pluralStringResource(R.plurals.exercises_count, r.items.size, r.items.size))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { open(store.start(r.name, r)) }, enabled = active == null) { Text(stringResource(R.string.start)) }
-                    OutlinedButton(onClick = { editRoutine(r.id) }) { Text(stringResource(R.string.edit)) }
-                    IconButton(onClick = { store.duplicateRoutine(r, copy.format(r.name)) }) { Icon(Icons.Filled.ContentCopy, stringResource(R.string.duplicate)) }
+                // One at a time: you leave a workout with Back and must be able to find it again.
+                if (active != null) item {
+                    Card(onClick = { open(active.id) }, shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.resume_title), style = MaterialTheme.typography.labelMedium)
+                                Text(active.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            Button(onClick = { open(active.id) }) { Text(stringResource(R.string.resume)) }
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SectionTitle(stringResource(R.string.routines), Modifier.weight(1f))
+                        TextButton(onClick = addRoutine) { Text(stringResource(R.string.new_routine)) }
+                    }
+                }
+                if (routines.isEmpty()) item { Hint(stringResource(R.string.no_routines)) }
+                items(routines, key = { it.id }) { r ->
+                    ListCard(r.name, pluralStringResource(R.plurals.exercises_count, r.items.size, r.items.size),
+                        muscleColor(r.items.firstOrNull()?.let { muscles[it.exerciseId] }), { editRoutine(r.id) }) {
+                        IconButton(onClick = { store.duplicateRoutine(r, copy.format(r.name)) }) { Icon(Icons.Filled.ContentCopy, stringResource(R.string.duplicate)) }
+                        FilledIconButton(onClick = { open(store.start(r.name, r)) }, enabled = active == null) {
+                            Icon(Icons.Filled.PlayArrow, stringResource(R.string.start))
+                        }
+                    }
                 }
             }
+        }
+        if (active == null) FloatingActionButton(onClick = { open(store.start(freeName)) },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
+            Icon(Icons.Filled.Add, stringResource(R.string.start_free))
         }
     }
 }
@@ -212,6 +252,7 @@ private fun setLine(s: WorkoutSet, number: Int, kind: ExerciseKind): String = wh
 
 private fun volumeText(grams: Long) = "${(grams / 1000)} kg"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HistoryTab(store: GymStore, exercises: List<Exercise>, version: Int, open: (Long) -> Unit) {
     val context = LocalContext.current
@@ -225,19 +266,16 @@ private fun HistoryTab(store: GymStore, exercises: List<Exercise>, version: Int,
             }
         }
     }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.tab_history), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                if (history.isNotEmpty()) TextButton(onClick = { save.launch("cadence.csv") }) { Text(stringResource(R.string.export_csv)) }
-            }
-        }
-        if (history.isEmpty()) item { Hint(stringResource(R.string.no_history)) }
-        items(history, key = { it.id }) { w ->
-            Panel(modifier = Modifier.clickable { open(w.id) }) {
-                Text(w.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Hint(listOf(w.day.format(format), pluralStringResource(R.plurals.sets_count, w.sets.size, w.sets.size),
-                    volumeText(Gym.volume(w.sets))).joinToString(" · "))
+    val muscles = exercises.associate { it.id to it.muscle }
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(title = { Text(stringResource(R.string.tab_history)) }, actions = {
+            if (history.isNotEmpty()) TextButton(onClick = { save.launch("cadence.csv") }) { Text(stringResource(R.string.export_csv)) }
+        })
+        LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (history.isEmpty()) item { Hint(stringResource(R.string.no_history)) }
+            items(history, key = { it.id }) { w ->
+                ListCard(w.name, listOf(w.day.format(format), pluralStringResource(R.plurals.sets_count, w.sets.size, w.sets.size),
+                    volumeText(Gym.volume(w.sets))).joinToString(" · "), muscleColor(w.sets.firstOrNull()?.let { muscles[it.exerciseId] }), { open(w.id) })
             }
         }
     }
@@ -288,6 +326,7 @@ private fun PastWorkoutScreen(store: GymStore, id: Long, exercises: List<Exercis
 
 // ---- exercises ----
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExercisesTab(store: GymStore, exercises: List<Exercise>, open: (Long) -> Unit) {
     val context = LocalContext.current
@@ -296,21 +335,22 @@ private fun ExercisesTab(store: GymStore, exercises: List<Exercise>, open: (Long
     var adding by remember { mutableStateOf(false) }
     val shown = exercises.filter { muscle == null || it.muscle == muscle }.map { it to it.title(context) }
         .filter { it.second.contains(search.trim(), ignoreCase = true) }.sortedBy { it.second.lowercase() }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.tab_exercises), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { adding = true }) { Text(stringResource(R.string.new_exercise)) }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(title = { Text(stringResource(R.string.tab_exercises)) })
+            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        placeholder = { Text(stringResource(R.string.search)) })
+                    MuscleChips(muscle) { muscle = it }
+                }
+                items(shown, key = { it.first.id }) { (e, name) ->
+                    ListCard(name, stringResource(muscleName(e.muscle)), muscleColor(e.muscle), { open(e.id) })
+                }
             }
-            OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true,
-                placeholder = { Text(stringResource(R.string.search)) })
-            MuscleChips(muscle) { muscle = it }
         }
-        items(shown, key = { it.first.id }) { (e, name) ->
-            Column(Modifier.fillMaxWidth().clickable { open(e.id) }.padding(vertical = 10.dp)) {
-                Text(name, style = MaterialTheme.typography.titleMedium)
-                Hint(stringResource(muscleName(e.muscle)))
-            }
+        FloatingActionButton(onClick = { adding = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
+            Icon(Icons.Filled.Add, stringResource(R.string.new_exercise))
         }
     }
     if (adding) NewExerciseDialog({ adding = false }) { name, m, kind -> store.addExercise(name, m, kind); adding = false }
