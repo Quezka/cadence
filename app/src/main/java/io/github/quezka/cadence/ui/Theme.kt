@@ -2,13 +2,16 @@ package io.github.quezka.cadence.ui
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
@@ -51,5 +54,8 @@ fun CadenceTheme(dynamic: Boolean = true, content: @Composable () -> Unit) {
         dark -> Dark
         else -> Light
     }
-    MaterialTheme(colorScheme = colors, typography = SuiteType, content = content)
+    MaterialTheme(colorScheme = colors, typography = SuiteType) {
+        // Every screen stands on this: without it they show the window behind, which is white even in the dark theme.
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, content = content)
+    }
 }

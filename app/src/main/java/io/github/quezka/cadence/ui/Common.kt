@@ -52,6 +52,35 @@ private fun nameRes(key: String): Int? = when (key) {
     "running" -> R.string.ex_running
     "cycling" -> R.string.ex_cycling
     "rowing" -> R.string.ex_rowing
+    "decline_press" -> R.string.ex_decline_press
+    "cable_crossover" -> R.string.ex_cable_crossover
+    "machine_chest_press" -> R.string.ex_machine_chest_press
+    "chin_up" -> R.string.ex_chin_up
+    "t_bar_row" -> R.string.ex_t_bar_row
+    "dumbbell_row" -> R.string.ex_dumbbell_row
+    "back_extension" -> R.string.ex_back_extension
+    "shrug" -> R.string.ex_shrug
+    "front_squat" -> R.string.ex_front_squat
+    "hack_squat" -> R.string.ex_hack_squat
+    "bulgarian_split_squat" -> R.string.ex_bulgarian_split_squat
+    "hip_thrust" -> R.string.ex_hip_thrust
+    "goblet_squat" -> R.string.ex_goblet_squat
+    "dumbbell_shoulder_press" -> R.string.ex_dumbbell_shoulder_press
+    "front_raise" -> R.string.ex_front_raise
+    "rear_delt_fly" -> R.string.ex_rear_delt_fly
+    "dumbbell_curl" -> R.string.ex_dumbbell_curl
+    "preacher_curl" -> R.string.ex_preacher_curl
+    "overhead_triceps" -> R.string.ex_overhead_triceps
+    "close_grip_bench" -> R.string.ex_close_grip_bench
+    "side_plank" -> R.string.ex_side_plank
+    "russian_twist" -> R.string.ex_russian_twist
+    "hanging_knee_raise" -> R.string.ex_hanging_knee_raise
+    "ab_wheel" -> R.string.ex_ab_wheel
+    "elliptical" -> R.string.ex_elliptical
+    "stair_climber" -> R.string.ex_stair_climber
+    "walking" -> R.string.ex_walking
+    "swimming" -> R.string.ex_swimming
+    "jump_rope" -> R.string.ex_jump_rope
     else -> null
 }
 
@@ -83,4 +112,5 @@ fun Panel(title: String? = null, modifier: Modifier = Modifier, content: @Compos
 @Composable
 fun Hint(text: String) = Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-fun clock(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
+fun clock(seconds: Long): String = if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
+    else "%d:%02d".format(seconds / 60, seconds % 60)

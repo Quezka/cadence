@@ -8,3 +8,6 @@ Android gym log (Kotlin + Compose, minSdk 26), sibling of Quire's phone app: sam
 - A set counts only once ticked; `finish` drops unticked sets, and a workout with nothing done is removed.
 - Public on GitHub (Quezka/cadence), with a backup on git.lan.
 - Releases: bump `versionName` and `versionCode`, add a CHANGELOG section, tag `vX.Y.Z`, push. The key is in `~/.local/share/cadence-signing`; without it an installed copy can't be updated. If the repo has the secrets `CADENCE_KEYSTORE_B64`/`CADENCE_KEYSTORE_PASSWORD`, CI publishes `Cadence-<v>-android.apk` by itself. If not, copy the key's `keystore.properties` to the repo root (git-ignored; delete it afterwards), run `assembleRelease`, and `gh release create` with the APK under that name.
+- Every screen stands on the `Surface` in `CadenceTheme`: without it a page without a Scaffold shows the white window behind.
+- Schema changes: bump `Helper.VERSION`, add a step in `onUpgrade`, cover it in `StoreAndScreensTest`. `builtIns()` adds new exercises to existing databases; a new one also needs `ex_<key>` strings and a line in `Common.nameRes`.
+- A set is measured by its exercise's kind: `grams`+`reps`, or `seconds`, or `seconds`+`meters` (`RoutineItem.reps` is then seconds or minutes). A backup is the database file itself.

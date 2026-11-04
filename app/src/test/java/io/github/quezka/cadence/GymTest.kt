@@ -62,8 +62,13 @@ class GymTest {
         assertEquals(0, Gym.weekStreak(listOf(wed.minusWeeks(3)), wed))
     }
 
+    @Test fun anEstimateIsShownToTheHalfKilo() {
+        assertEquals("58.5", Gym.showEstimate(58333))
+        assertEquals("100", Gym.showEstimate(100100))
+    }
+
     @Test fun csvQuotesWhatNeedsIt() {
         val w = io.github.quezka.cadence.domain.Workout(1, "A, B", 0, 1, LocalDate.of(2026, 11, 4), listOf(set(62500, 8), set(1000, 1, done = false)))
-        assertEquals("date,workout,exercise,set,kg,reps\n2026-11-04,\"A, B\",Squat,1,62.5,8\n", Gym.csv(listOf(w)) { "Squat" })
+        assertEquals("date,workout,exercise,set,kg,reps,seconds,km\n2026-11-04,\"A, B\",Squat,1,62.5,8,0,0\n", Gym.csv(listOf(w)) { "Squat" })
     }
 }

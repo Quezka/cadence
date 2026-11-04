@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0] - 2026-11-04
+
+### Fixed
+- **Pages going white**: routines, workouts and exercises showed the white window behind them, even in the dark theme.
+- **A workout left with Back couldn't be found again.** The first page now offers to resume it, and only one runs at a time.
+- Turning the phone no longer loses the page you're on or the rest timer.
+- Bodyweight exercises no longer show a best of "0 kg": they go by reps.
+
+### Added
+- **Timed and cardio exercises**: a plank is in seconds, a run in minutes and km, and your own exercises can be either.
+- **Stats**: volume over the last 8 weeks, sets per muscle this week, best lifts, and your body weight with its chart.
+- **In a workout**: ±2.5 kg buttons, what you did last time beside each set, finished sets highlighted, a plate calculator, notes, removing an exercise, and -15 and +30 on the rest timer.
+- **History**: correct a finished workout, do it again, or save it as a routine.
+- **Routines**: reorder and duplicate.
+- **Exercises**: 29 more, a filter by muscle, make one while picking, delete your own if unused.
+- **Settings**: how long to rest, and saving or restoring a backup of everything.
+
 ## [0.1.1] - 2026-11-04
 
 Nothing changes in the app: this is the first version built and signed by the release pipeline. It installs over 0.1.0 and keeps your workouts.

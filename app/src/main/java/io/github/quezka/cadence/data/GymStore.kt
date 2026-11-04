@@ -7,6 +7,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import io.github.quezka.cadence.domain.BUILT_IN
 import io.github.quezka.cadence.domain.Exercise
+import io.github.quezka.cadence.domain.ExerciseKind
+import io.github.quezka.cadence.domain.builtInKind
 import io.github.quezka.cadence.domain.Gym
 import io.github.quezka.cadence.domain.Muscle
 import io.github.quezka.cadence.domain.Routine
@@ -15,29 +17,57 @@ import io.github.quezka.cadence.domain.Workout
 import io.github.quezka.cadence.domain.WorkoutSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.time.LocalDate
 
-private class Helper(context: Context, name: String?) : SQLiteOpenHelper(context, name, null, 1) {
+private class Helper(context: Context, name: String?) : SQLiteOpenHelper(context, name, null, VERSION) {
     override fun onConfigure(db: SQLiteDatabase) = db.setForeignKeyConstraintsEnabled(true)
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE exercises (id INTEGER PRIMARY KEY, key TEXT UNIQUE, name TEXT NOT NULL, muscle TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE exercises (id INTEGER PRIMARY KEY, key TEXT UNIQUE, name TEXT NOT NULL, muscle TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'WEIGHT')")
         db.execSQL("CREATE TABLE routines (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
         db.execSQL("""CREATE TABLE routine_items (routine_id INTEGER NOT NULL REFERENCES routines(id) ON DELETE CASCADE,
             position INTEGER NOT NULL, exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
             sets INTEGER NOT NULL, reps INTEGER NOT NULL)""")
-        db.execSQL("CREATE TABLE workouts (id INTEGER PRIMARY KEY, name TEXT NOT NULL, started INTEGER NOT NULL, finished INTEGER, day TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE workouts (id INTEGER PRIMARY KEY, name TEXT NOT NULL, started INTEGER NOT NULL, finished INTEGER, day TEXT NOT NULL, note TEXT NOT NULL DEFAULT '')")
         db.execSQL("""CREATE TABLE sets (id INTEGER PRIMARY KEY, workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
             exercise_id INTEGER NOT NULL REFERENCES exercises(id), position INTEGER NOT NULL, grams INTEGER NOT NULL,
-            reps INTEGER NOT NULL, done INTEGER NOT NULL)""")
+            reps INTEGER NOT NULL, done INTEGER NOT NULL, seconds INTEGER NOT NULL DEFAULT 0, meters INTEGER NOT NULL DEFAULT 0)""")
         db.execSQL("CREATE INDEX idx_sets_exercise ON sets(exercise_id)")
         db.execSQL("CREATE INDEX idx_sets_workout ON sets(workout_id)")
-        for ((key, muscle) in BUILT_IN) db.insert("exercises", null, ContentValues().apply {
-            put("key", key); put("name", ""); put("muscle", muscle.name)
-        })
+        newTables(db)
+        builtIns(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    private fun newTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE body (day TEXT PRIMARY KEY, grams INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    }
+
+    /** Adds the exercises that aren't there yet (so an update can bring new ones) and says how each is measured. */
+    private fun builtIns(db: SQLiteDatabase) {
+        for ((key, muscle) in BUILT_IN) {
+            db.insertWithOnConflict("exercises", null, ContentValues().apply {
+                put("key", key); put("name", ""); put("muscle", muscle.name)
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+            db.update("exercises", ContentValues().apply { put("kind", builtInKind(key).name) }, "key = ?", arrayOf(key))
+        }
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE exercises ADD COLUMN kind TEXT NOT NULL DEFAULT 'WEIGHT'")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE sets ADD COLUMN seconds INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE sets ADD COLUMN meters INTEGER NOT NULL DEFAULT 0")
+            newTables(db)
+            builtIns(db)
+        }
+    }
+
+    companion object { const val VERSION = 2 }
 }
 
 /** Everything is stored as soon as it happens: a workout survives the phone dying halfway through it. */
@@ -60,16 +90,29 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
 
     fun exercises(): List<Exercise> = db.rawQuery("SELECT * FROM exercises ORDER BY id", null).all {
         Exercise(long("id"), str("key").ifEmpty { null }, str("name"),
-            runCatching { Muscle.valueOf(str("muscle")) }.getOrDefault(Muscle.OTHER))
+            runCatching { Muscle.valueOf(str("muscle")) }.getOrDefault(Muscle.OTHER),
+            runCatching { ExerciseKind.valueOf(str("kind")) }.getOrDefault(ExerciseKind.WEIGHT))
     }
 
-    fun addExercise(name: String, muscle: Muscle): Long {
+    fun addExercise(name: String, muscle: Muscle, kind: ExerciseKind = ExerciseKind.WEIGHT): Long {
         val id = db.insertOrThrow("exercises", null, ContentValues().apply {
-            putNull("key"); put("name", name.trim()); put("muscle", muscle.name)
+            putNull("key"); put("name", name.trim()); put("muscle", muscle.name); put("kind", kind.name)
         })
         changed()
         return id
     }
+
+    /** Only one of your own, and only if no workout used it: history must keep its names. False if it stays. */
+    fun deleteExercise(id: Long): Boolean {
+        val used = db.rawQuery("SELECT COUNT(*) FROM sets WHERE exercise_id = ?", arrayOf(id.toString())).use { it.moveToFirst(); it.getInt(0) } > 0
+        if (used || db.delete("exercises", "id = ? AND key IS NULL", arrayOf(id.toString())) == 0) return false
+        changed()
+        return true
+    }
+
+    private fun kindOf(exerciseId: Long): ExerciseKind =
+        db.rawQuery("SELECT kind FROM exercises WHERE id = ?", arrayOf(exerciseId.toString())).all { str("kind") }.firstOrNull()
+            ?.let { runCatching { ExerciseKind.valueOf(it) }.getOrNull() } ?: ExerciseKind.WEIGHT
 
     // ---- routines ----
 
@@ -103,6 +146,18 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
         return saved
     }
 
+    fun duplicateRoutine(routine: Routine, name: String): Long = saveRoutine(null, name, routine.items)
+
+    /** A routine out of a workout you did: same exercises, same number of sets. */
+    fun routineFrom(workout: Workout): List<RoutineItem> = workout.sets.groupBy { it.exerciseId }.map { (id, sets) ->
+        val target = when (kindOf(id)) {
+            ExerciseKind.WEIGHT -> sets.maxOf { it.reps }
+            ExerciseKind.TIME -> sets.maxOf { it.seconds }
+            ExerciseKind.CARDIO -> sets.maxOf { it.seconds } / 60
+        }
+        RoutineItem(id, sets.size, target.coerceAtLeast(1))
+    }
+
     fun deleteRoutine(id: Long) {
         db.delete("routines", "id = ?", arrayOf(id.toString()))
         changed()
@@ -112,10 +167,10 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
 
     private fun setsOf(workoutId: Long) = db.rawQuery("SELECT * FROM sets WHERE workout_id = ? ORDER BY id", arrayOf(workoutId.toString())).all { aSet() }
 
-    private fun Cursor.aSet() = WorkoutSet(long("id"), long("workout_id"), long("exercise_id"), int("position"), int("grams"), int("reps"), int("done") == 1)
+    private fun Cursor.aSet() = WorkoutSet(long("id"), long("workout_id"), long("exercise_id"), int("position"), int("grams"), int("reps"), int("done") == 1, int("seconds"), int("meters"))
 
     private fun Cursor.aWorkout() = Workout(long("id"), str("name"), long("started"),
-        if (isNull(getColumnIndexOrThrow("finished"))) null else long("finished"), LocalDate.parse(str("day")))
+        if (isNull(getColumnIndexOrThrow("finished"))) null else long("finished"), LocalDate.parse(str("day")), note = str("note"))
 
     fun workout(id: Long): Workout? = db.rawQuery("SELECT * FROM workouts WHERE id = ?", arrayOf(id.toString())).all { aWorkout() }
         .firstOrNull()?.let { it.copy(sets = setsOf(it.id)) }
@@ -135,8 +190,17 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
             put("name", name.trim()); put("started", now()); put("day", today().toString())
         })
         routine?.items?.forEach { item ->
-            val weight = Gym.nextWeight(lastSets(item.exerciseId), item.reps) ?: 0
-            repeat(item.sets) { addSet(id, item.exerciseId, weight, item.reps) }
+            when (kindOf(item.exerciseId)) {
+                ExerciseKind.WEIGHT -> {
+                    val weight = Gym.nextWeight(lastSets(item.exerciseId), item.reps) ?: 0
+                    repeat(item.sets) { addSet(id, item.exerciseId, weight, item.reps) }
+                }
+                ExerciseKind.TIME -> repeat(item.sets) { addSet(id, item.exerciseId, 0, 0, item.reps) }
+                ExerciseKind.CARDIO -> {
+                    val meters = lastSets(item.exerciseId).lastOrNull()?.meters ?: 0
+                    repeat(item.sets) { addSet(id, item.exerciseId, 0, 0, item.reps * 60, meters) }
+                }
+            }
         }
         changed()
         return id
@@ -144,15 +208,27 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
 
     fun addExerciseToWorkout(workoutId: Long, exerciseId: Long) {
         val last = lastSets(exerciseId).lastOrNull()
-        addSet(workoutId, exerciseId, last?.grams ?: 0, last?.reps ?: 8)
+        val kind = kindOf(exerciseId)
+        addSet(workoutId, exerciseId, last?.grams ?: 0, if (kind == ExerciseKind.WEIGHT) last?.reps ?: 8 else 0,
+            last?.seconds ?: if (kind == ExerciseKind.TIME) 60 else if (kind == ExerciseKind.CARDIO) 1800 else 0, last?.meters ?: 0)
     }
 
-    fun addSet(workoutId: Long, exerciseId: Long, grams: Int, reps: Int): Long {
+    fun removeExerciseFromWorkout(workoutId: Long, exerciseId: Long) {
+        db.delete("sets", "workout_id = ? AND exercise_id = ?", arrayOf(workoutId.toString(), exerciseId.toString()))
+        changed()
+    }
+
+    fun setNote(workoutId: Long, note: String) {
+        db.update("workouts", ContentValues().apply { put("note", note) }, "id = ?", arrayOf(workoutId.toString()))
+        changed()
+    }
+
+    fun addSet(workoutId: Long, exerciseId: Long, grams: Int, reps: Int, seconds: Int = 0, meters: Int = 0): Long {
         val position = db.rawQuery("SELECT COUNT(*) FROM sets WHERE workout_id = ? AND exercise_id = ?",
             arrayOf(workoutId.toString(), exerciseId.toString())).use { it.moveToFirst(); it.getInt(0) }
         val id = db.insertOrThrow("sets", null, ContentValues().apply {
             put("workout_id", workoutId); put("exercise_id", exerciseId); put("position", position)
-            put("grams", grams); put("reps", reps); put("done", 0)
+            put("grams", grams); put("reps", reps); put("done", 0); put("seconds", seconds); put("meters", meters)
         })
         changed()
         return id
@@ -161,6 +237,13 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
     fun updateSet(id: Long, grams: Int, reps: Int, done: Boolean) {
         db.update("sets", ContentValues().apply {
             put("grams", grams.coerceIn(0, Gym.MAX_GRAMS)); put("reps", reps.coerceIn(0, Gym.MAX_REPS)); put("done", if (done) 1 else 0)
+        }, "id = ?", arrayOf(id.toString()))
+        changed()
+    }
+
+    fun updateTimedSet(id: Long, seconds: Int, meters: Int, done: Boolean) {
+        db.update("sets", ContentValues().apply {
+            put("seconds", seconds.coerceIn(0, Gym.MAX_SECONDS)); put("meters", meters.coerceIn(0, Gym.MAX_METERS)); put("done", if (done) 1 else 0)
         }, "id = ?", arrayOf(id.toString()))
         changed()
     }
@@ -174,7 +257,8 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
     fun finish(id: Long): Boolean {
         db.delete("sets", "workout_id = ? AND done = 0", arrayOf(id.toString()))
         val kept = setsOf(id).isNotEmpty()
-        if (kept) db.update("workouts", ContentValues().apply { put("finished", now()) }, "id = ?", arrayOf(id.toString()))
+        // Editing one finished long ago keeps its own time.
+        if (kept) db.update("workouts", ContentValues().apply { put("finished", now()) }, "id = ? AND finished IS NULL", arrayOf(id.toString()))
         else db.delete("workouts", "id = ?", arrayOf(id.toString()))
         changed()
         return kept
@@ -193,12 +277,67 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
         return setsOf(workout).filter { it.exerciseId == exerciseId }
     }
 
-    /** Best estimated single per finished workout, oldest first: the progress line. */
-    fun progress(exerciseId: Long): List<Pair<LocalDate, Int>> =
-        db.rawQuery("""SELECT w.day AS day, s.grams AS grams, s.reps AS reps FROM sets s JOIN workouts w ON w.id = s.workout_id
+    /** The best of each finished workout, oldest first: the progress line. [score] is what "best" means (the estimated single, unless told otherwise). */
+    fun progress(exerciseId: Long, score: (WorkoutSet) -> Int = { Gym.oneRepMax(it.grams, it.reps) }): List<Pair<LocalDate, Int>> =
+        db.rawQuery("""SELECT w.day AS day, s.* FROM sets s JOIN workouts w ON w.id = s.workout_id
             WHERE s.exercise_id = ? AND s.done = 1 AND w.finished IS NOT NULL ORDER BY w.started""", arrayOf(exerciseId.toString()))
-            .all { Triple(LocalDate.parse(str("day")), int("grams"), int("reps")) }
-            .groupBy { it.first }.map { (day, sets) -> day to sets.maxOf { Gym.oneRepMax(it.second, it.third) } }
+            .all { LocalDate.parse(str("day")) to aSet() }
+            .groupBy { it.first }.map { (day, sets) -> day to sets.maxOf { score(it.second) } }
+
+    // ---- body weight ----
+
+    fun logBody(day: LocalDate, grams: Int) {
+        db.insertWithOnConflict("body", null, ContentValues().apply { put("day", day.toString()); put("grams", grams) }, SQLiteDatabase.CONFLICT_REPLACE)
+        changed()
+    }
+
+    fun deleteBody(day: LocalDate) {
+        db.delete("body", "day = ?", arrayOf(day.toString()))
+        changed()
+    }
+
+    /** Oldest first. */
+    fun bodyLog(): List<Pair<LocalDate, Int>> = db.rawQuery("SELECT * FROM body ORDER BY day", null).all { LocalDate.parse(str("day")) to int("grams") }
+
+    // ---- settings ----
+
+    fun restSeconds(): Int = setting("rest")?.toIntOrNull() ?: 90
+
+    fun setRestSeconds(seconds: Int) {
+        db.insertWithOnConflict("settings", null, ContentValues().apply { put("key", "rest"); put("value", seconds.toString()) }, SQLiteDatabase.CONFLICT_REPLACE)
+        changed()
+    }
+
+    private fun setting(key: String): String? = db.rawQuery("SELECT value FROM settings WHERE key = ?", arrayOf(key)).all { str("value") }.firstOrNull()
+
+    // ---- backup: the database file itself, so nothing is left out ----
+
+    fun export(out: OutputStream) {
+        val file = File(db.path)
+        file.inputStream().use { it.copyTo(out) }
+    }
+
+    /** Replaces everything with the backup in [input]. False, and nothing touched, if it isn't one. The app must restart afterwards. */
+    fun restore(context: Context, input: InputStream): Boolean {
+        val target = File(db.path)
+        val incoming = File.createTempFile("restore", ".db", context.cacheDir)
+        try {
+            incoming.outputStream().use { input.copyTo(it) }
+            if (!isBackup(incoming)) return false
+            db.close()
+            incoming.copyTo(target, overwrite = true)
+            return true
+        } finally {
+            incoming.delete()
+        }
+    }
+
+    private fun isBackup(file: File): Boolean = runCatching {
+        SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { d ->
+            d.rawQuery("SELECT COUNT(*) FROM workouts", null).use { it.moveToFirst() } &&
+                d.rawQuery("SELECT COUNT(*) FROM exercises", null).use { it.moveToFirst() }
+        }
+    }.getOrDefault(false)
 
     /** The best estimate before this workout, to tell a new record. */
     fun bestBefore(exerciseId: Long, workoutId: Long): Int =
