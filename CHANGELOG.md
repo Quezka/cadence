@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.1] - 2026-11-04
+
+Nothing changes in the app: this is the first version built and signed by the release pipeline. It installs over 0.1.0 and keeps your workouts.
+
 ## [0.1.0] - 2026-11-04
 
 First release: a gym log for your phone, with no account and no network.
