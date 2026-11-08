@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.0] - 2026-11-08
+- **Brighter colours and the glass look**, as across the suite: screens sit on a soft wash of colour, with see-through
+  cards and bottom bar. Sheets and dialogs stay solid, so what's on them is easy to read.
+
 ## [0.3.2] - 2026-11-04
 
 The same indigo and colours as the rest of the suite, computer included.

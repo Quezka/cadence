@@ -119,7 +119,7 @@ fun muscleName(m: Muscle): Int = when (m) {
 @Composable
 fun Panel(title: String? = null, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        colors = CardDefaults.cardColors(containerColor = Glass.surface()), border = Glass.edge()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             content()
@@ -139,7 +139,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     Card(modifier, shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        colors = CardDefaults.cardColors(containerColor = Glass.surface()), border = Glass.edge()) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
             Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             AnimatedContent(value, transitionSpec = {
@@ -155,7 +155,7 @@ fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun ListCard(title: String, meta: String, stripe: Color, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit = {}) {
     val source = remember { MutableInteractionSource() }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    Card(colors = CardDefaults.cardColors(containerColor = Glass.surface()), border = Glass.edge(),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth().pressScale(source).then(
             if (onClick != null) Modifier.clickable(source, null, onClick = onClick) else Modifier)) {

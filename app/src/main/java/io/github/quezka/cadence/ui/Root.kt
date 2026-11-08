@@ -153,7 +153,7 @@ private sealed interface Screen {
 private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: Tab, pick: (Tab) -> Unit, open: (Long) -> Unit, newRoutine: () -> Unit,
                  editRoutine: (Long) -> Unit, settings: () -> Unit, openPast: (Long) -> Unit, openExercise: (Long) -> Unit) {
     Scaffold(bottomBar = {
-        NavigationBar {
+        NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.86f)) {
             NavigationBarItem(tab == Tab.TRAIN, { pick(Tab.TRAIN) }, { Icon(Icons.Filled.FitnessCenter, null) },
                 label = { Text(stringResource(R.string.tab_train)) })
             NavigationBarItem(tab == Tab.HISTORY, { pick(Tab.HISTORY) }, { Icon(Icons.Filled.History, null) },
