@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.0] - 2026-11-09
+- **Liquid glass done properly, the Apple way.** Backgrounds are plain and cards solid again (the colour wash is gone).
+  The top bar of each tab, the workout's bar (with the rest timer) and the bottom bar are glass: what scrolls under
+  them shows through, blurred (Android 13 and newer; older phones get a see-through tint).
+
 ## [0.4.0] - 2026-11-08
 - **Brighter colours and the glass look**, as across the suite: screens sit on a soft wash of colour, with see-through
   cards and bottom bar. Sheets and dialogs stay solid, so what's on them is easy to read.

@@ -60,6 +60,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -68,6 +69,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,8 +158,10 @@ private sealed interface Screen {
 @Composable
 private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: Tab, pick: (Tab) -> Unit, open: (Long) -> Unit, newRoutine: () -> Unit,
                  editRoutine: (Long) -> Unit, settings: () -> Unit, openPast: (Long) -> Unit, openExercise: (Long) -> Unit) {
+    // The bottom bar is glass: the tabs run under it and it blurs them.
+    val tabsHaze = remember { HazeState() }
     Scaffold(bottomBar = {
-        NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.86f)) {
+        NavigationBar(Modifier.hazeChild(tabsHaze, glassStyle()), containerColor = Color.Transparent) {
             NavigationBarItem(tab == Tab.TRAIN, { pick(Tab.TRAIN) }, { Icon(Icons.Filled.FitnessCenter, null) },
                 label = { Text(stringResource(R.string.tab_train)) })
             NavigationBarItem(tab == Tab.HISTORY, { pick(Tab.HISTORY) }, { Icon(Icons.Filled.History, null) },
@@ -164,7 +172,8 @@ private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: 
                 label = { Text(stringResource(R.string.tab_exercises)) })
         }
     }) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize().haze(tabsHaze)) {
+          CompositionLocalProvider(LocalBottomInset provides padding.calculateBottomPadding()) {
             AnimatedContent(tab, transitionSpec = { Motion.tabs() }, label = "tab") { shown ->
                 when (shown) {
                     Tab.TRAIN -> TrainTab(store, exercises, version, open, newRoutine, editRoutine, settings)
@@ -173,6 +182,7 @@ private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: 
                     Tab.EXERCISES -> ExercisesTab(store, exercises, openExercise)
                 }
             }
+          }
         }
     }
 }
@@ -190,11 +200,12 @@ private fun TrainTab(store: GymStore, exercises: List<Exercise>, version: Int, o
     val freeName = stringResource(R.string.free_workout)
     val copy = stringResource(R.string.copy_of, "%s")
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
+        GlassScreen(bar = {
+TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
                 IconButton(onClick = settings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
-            })
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
+}) { glass ->
+            LazyColumn(contentPadding = glass.plus(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         StatTile(stringResource(R.string.stat_week), thisWeek.toString(), Modifier.weight(1f))
@@ -234,7 +245,7 @@ private fun TrainTab(store: GymStore, exercises: List<Exercise>, version: Int, o
             }
         }
         if (active == null) FloatingActionButton(onClick = { open(store.start(freeName)) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp + LocalBottomInset.current)) {
             Icon(Icons.Filled.Add, stringResource(R.string.start_free))
         }
     }
@@ -267,11 +278,12 @@ private fun HistoryTab(store: GymStore, exercises: List<Exercise>, version: Int,
         }
     }
     val muscles = exercises.associate { it.id to it.muscle }
-    Column(Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text(stringResource(R.string.tab_history)) }, actions = {
+    GlassScreen(bar = {
+TopAppBar(title = { Text(stringResource(R.string.tab_history)) }, actions = {
             if (history.isNotEmpty()) TextButton(onClick = { save.launch("cadence.csv") }) { Text(stringResource(R.string.export_csv)) }
-        })
-        LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
+}) { glass ->
+        LazyColumn(contentPadding = glass.plus(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (history.isEmpty()) item { Hint(stringResource(R.string.no_history)) }
             items(history, key = { it.id }) { w ->
                 ListCard(w.name, listOf(w.day.format(format), pluralStringResource(R.plurals.sets_count, w.sets.size, w.sets.size),
@@ -336,9 +348,10 @@ private fun ExercisesTab(store: GymStore, exercises: List<Exercise>, open: (Long
     val shown = exercises.filter { muscle == null || it.muscle == muscle }.map { it to it.title(context) }
         .filter { it.second.contains(search.trim(), ignoreCase = true) }.sortedBy { it.second.lowercase() }
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TopAppBar(title = { Text(stringResource(R.string.tab_exercises)) })
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        GlassScreen(bar = {
+TopAppBar(title = { Text(stringResource(R.string.tab_exercises)) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
+}) { glass ->
+            LazyColumn(contentPadding = glass.plus(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true,
                         placeholder = { Text(stringResource(R.string.search)) })
@@ -349,7 +362,7 @@ private fun ExercisesTab(store: GymStore, exercises: List<Exercise>, open: (Long
                 }
             }
         }
-        FloatingActionButton(onClick = { adding = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) {
+        FloatingActionButton(onClick = { adding = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp + LocalBottomInset.current)) {
             Icon(Icons.Filled.Add, stringResource(R.string.new_exercise))
         }
     }

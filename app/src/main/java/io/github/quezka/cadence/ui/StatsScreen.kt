@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,9 +76,10 @@ fun StatsTab(store: GymStore, exercises: List<Exercise>, version: Int) {
     val volume = Gym.weeklyVolume(history, today)
     val byMuscle = Gym.setsByMuscle(history, muscles::get, Gym.weekOf(today))
     val bests = Gym.bests(history).take(8)
-    Column(Modifier.fillMaxSize()) {
-    TopAppBar(title = { Text(stringResource(R.string.tab_stats)) })
-    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    GlassScreen(bar = {
+TopAppBar(title = { Text(stringResource(R.string.tab_stats)) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
+}) { glass ->
+    LazyColumn(contentPadding = glass.plus(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (history.isNotEmpty()) item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile(stringResource(R.string.stat_volume), "${volume.last().second / 1000} kg", Modifier.weight(1f))

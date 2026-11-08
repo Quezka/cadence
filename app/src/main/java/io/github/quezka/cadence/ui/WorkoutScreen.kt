@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,6 +45,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -121,7 +123,10 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
     }
     BackHandler { if (editing) leaveEdit() else close() }
 
-    Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
+    // The title, the clock and the rest timer float on glass; the sets scroll under them.
+    Box(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
+      GlassScreen(bar = {
+       Column {
         TopAppBar(title = {
             Column {
                 Text(workout.name, maxLines = 1)
@@ -135,10 +140,12 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
                 TextButton(onClick = { discarding = true }) { Text(stringResource(R.string.discard)) }
                 Button(onClick = { finishing = true }, Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.finish)) }
             }
-        })
+        }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
         val left = restUntil - now
         if (left > 0) RestBar(left, restLength, { restUntil += 30; restLength += 30 }, { restUntil -= 15 }, { restUntil = 0 })
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+       }
+      }) { glass ->
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(glass).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (workout.sets.isEmpty()) Hint(stringResource(R.string.workout_empty))
             for ((exerciseId, sets) in workout.sets.groupBy { it.exerciseId }) {
                 val exercise = exercises.firstOrNull { it.id == exerciseId } ?: continue
@@ -154,6 +161,7 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
             OutlinedTextField(note, { note = it; store.setNote(workoutId, it) }, Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.note)) }, placeholder = { Text(stringResource(R.string.note_hint)) })
         }
+      }
     }
     if (picking) ExercisePicker(store, exercises, { picking = false }) { store.addExerciseToWorkout(workoutId, it); picking = false }
     if (discarding) AlertDialog(onDismissRequest = { discarding = false }, title = { Text(stringResource(R.string.discard_title)) },

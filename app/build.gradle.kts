@@ -20,8 +20,8 @@ android {
         applicationId = "io.github.quezka.cadence"
         minSdk = 26
         targetSdk = 35
-        versionCode = 400
-        versionName = "0.4.0"
+        versionCode = 500
+        versionName = "0.5.0"
     }
     signingConfigs {
         create("release") {
@@ -57,6 +57,8 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.material3:material3")
+    // Real blur behind the glass bars (Android 13+; older phones get a see-through tint). Apache 2.0.
+    implementation("dev.chrisbanes.haze:haze:1.1.1")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.activity:activity-compose:1.9.3")
