@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.1] - 2026-11-09
+- **Clearer glass.** The glass bars are much more see-through (a lighter tint over a stronger blur), so what scrolls
+  under them clearly shows.
+
 ## [0.5.0] - 2026-11-09
 - **Liquid glass done properly, the Apple way.** Backgrounds are plain and cards solid again (the colour wash is gone).
   The top bar of each tab, the workout's bar (with the rest timer) and the bottom bar are glass: what scrolls under
