@@ -198,4 +198,15 @@
     <string name="stat_streak">Недель подряд</string>
     <string name="stat_volume">Объём за неделю</string>
     <string name="stat_sets">Подходы за неделю</string>
+    <string name="sec_updates">Обновления</string>
+    <string name="version_fmt">Версия %1$s</string>
+    <string name="checking">Ищу новую версию…</string>
+    <string name="up_to_date">У вас самая новая версия.</string>
+    <string name="no_releases">Пока ничего не опубликовано.</string>
+    <string name="update_failed">Не удалось связаться с GitHub. Проверьте интернет.</string>
+    <string name="downloading">Загрузка: %1$d%%</string>
+    <string name="update_available">Вышла версия %1$s.</string>
+    <string name="download_install">Скачать и установить</string>
+    <string name="allow_installs">Разрешить Cadence устанавливать обновления</string>
+    <string name="check_updates">Проверить обновления</string>
 </resources>

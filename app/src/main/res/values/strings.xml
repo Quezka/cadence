@@ -192,4 +192,15 @@
     <string name="stat_streak">Weeks in a row</string>
     <string name="stat_volume">Volume this week</string>
     <string name="stat_sets">Sets this week</string>
+    <string name="sec_updates">Updates</string>
+    <string name="version_fmt">Version %1$s</string>
+    <string name="checking">Looking for a new version…</string>
+    <string name="up_to_date">You have the newest version.</string>
+    <string name="no_releases">Nothing published yet.</string>
+    <string name="update_failed">Couldn\'t reach GitHub. Check the internet connection.</string>
+    <string name="downloading">Downloading: %1$d%%</string>
+    <string name="update_available">Version %1$s is out.</string>
+    <string name="download_install">Download and install</string>
+    <string name="allow_installs">Allow Cadence to install updates</string>
+    <string name="check_updates">Check for updates</string>
 </resources>

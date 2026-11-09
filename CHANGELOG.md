@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2026-11-09
+
+- Updates over the air: Settings shows the version and has "Check for updates". A newer release on GitHub is
+  downloaded and handed to Android's installer (it asks once for permission to install). The internet is used for
+  nothing else; workouts never leave the phone.
+
 ## [0.6.0] - 2026-11-09
 
 The suite's new shared look (one design system for every app, `suite-rs/design/tokens.json`):

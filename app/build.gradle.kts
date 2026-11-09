@@ -20,8 +20,9 @@ android {
         applicationId = "io.github.quezka.cadence"
         minSdk = 26
         targetSdk = 35
-        versionCode = 600
-        versionName = "0.6.0"
+        versionCode = 700
+        versionName = "0.7.0"
+        buildConfigField("String", "UPDATE_REPO", "\"Quezka/cadence\"")
     }
     signingConfigs {
         create("release") {
@@ -46,7 +47,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true

@@ -57,7 +57,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.quezka.cadence.BuildConfig
 import io.github.quezka.cadence.R
+import io.github.quezka.cadence.data.ReleaseFeed
+import io.github.quezka.cadence.data.Updater
+import io.github.quezka.cadence.domain.Release
+import io.github.quezka.cadence.domain.newerThan
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.github.quezka.cadence.data.GymStore
 import io.github.quezka.cadence.domain.Exercise
 import io.github.quezka.cadence.domain.Gym
@@ -215,6 +224,7 @@ fun SettingsScreen(store: GymStore, version: Int, back: () -> Unit) {
                 Button(onClick = { save.launch("cadence-${LocalDate.now()}.db") }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.backup_save)) }
                 OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.backup_restore)) }
             }
+            UpdatesPanel()
         }
     }
     pending?.let { uri ->
@@ -232,5 +242,80 @@ fun SettingsScreen(store: GymStore, version: Int, back: () -> Unit) {
                 }) { Text(stringResource(R.string.restore_go)) }
             },
             dismissButton = { TextButton(onClick = { pending = null }) { Text(stringResource(R.string.cancel)) } })
+    }
+}
+
+private sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object Current : UpdateState
+    data object NoRelease : UpdateState
+    data object Failed : UpdateState
+    data class Available(val release: Release) : UpdateState
+    data class Downloading(val percent: Int) : UpdateState
+}
+
+/** Over-the-air updates from the GitHub releases, like Quire's and Vesper's. */
+@Composable
+private fun UpdatesPanel() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
+    fun check() {
+        state = UpdateState.Checking
+        scope.launch {
+            state = try {
+                val feed = withContext(Dispatchers.IO) { ReleaseFeed.latest(BuildConfig.UPDATE_REPO) }
+                val r = newerThan(BuildConfig.VERSION_NAME, feed)
+                when {
+                    r != null -> UpdateState.Available(r)
+                    feed == null -> UpdateState.NoRelease
+                    else -> UpdateState.Current
+                }
+            } catch (e: Exception) {
+                UpdateState.Failed
+            }
+        }
+    }
+    Panel(stringResource(R.string.sec_updates)) {
+        Hint(stringResource(R.string.version_fmt, BuildConfig.VERSION_NAME))
+        when (val s = state) {
+            UpdateState.Idle -> {}
+            UpdateState.Checking -> Text(stringResource(R.string.checking))
+            UpdateState.Current -> Text(stringResource(R.string.up_to_date), color = MaterialTheme.colorScheme.tertiary)
+            UpdateState.NoRelease -> Text(stringResource(R.string.no_releases))
+            UpdateState.Failed -> Text(stringResource(R.string.update_failed), color = MaterialTheme.colorScheme.error)
+            is UpdateState.Downloading -> Text(stringResource(R.string.downloading, s.percent))
+            is UpdateState.Available -> {
+                Text(stringResource(R.string.update_available, s.release.version.toString()), fontWeight = FontWeight.SemiBold)
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        if (!Updater.canInstall(context)) {
+                            context.startActivity(Updater.permissionIntent(context))
+                            return@Button
+                        }
+                        state = UpdateState.Downloading(0)
+                        scope.launch {
+                            val apk = try {
+                                withContext(Dispatchers.IO) {
+                                    Updater.download(context, s.release) { state = UpdateState.Downloading((it * 100).toInt()) }
+                                }
+                            } catch (e: Exception) {
+                                state = UpdateState.Failed
+                                return@launch
+                            }
+                            state = UpdateState.Available(s.release)
+                            Updater.install(context, apk)
+                        }
+                    },
+                ) { Text(stringResource(if (Updater.canInstall(context)) R.string.download_install else R.string.allow_installs)) }
+            }
+        }
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state !is UpdateState.Checking && state !is UpdateState.Downloading,
+            onClick = { check() },
+        ) { Text(stringResource(R.string.check_updates)) }
     }
 }
