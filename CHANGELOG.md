@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0] - 2026-11-09
+
+The suite's new shared look (one design system for every app, `suite-rs/design/tokens.json`):
+
+- **Neutral greys** instead of blue-tinted backgrounds, sidebars and borders; indigo stays as the one accent colour.
+- **One type scale** shared with every app: body text 16 sp, nothing smaller than 13 px;
+  titles and buttons follow the same sizes everywhere.
+- The same corner radii and spacing in every app.
+
 ## [0.5.1] - 2026-11-09
 - **Clearer glass.** The glass bars are much more see-through (a lighter tint over a stronger blur), so what scrolls
   under them clearly shows.
