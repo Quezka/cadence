@@ -1,6 +1,6 @@
 # Cadence
 
-Android gym log (Kotlin + Compose, minSdk 26), sibling of Quire's phone app: same toolchain and look, no network at all, no account. Started 2026-11-04.
+Android gym log (Kotlin + Compose, minSdk 26), sibling of Quire's phone app: same toolchain and look, no account; the network is used only for over-the-air updates (`data/ReleaseFeed.kt`, `data/Updater.kt`, Settings → Updates, as in Vesper). Started 2026-11-04.
 
 - Layers: `domain/Gym.kt` (pure rules, whole grams), `data/GymStore.kt` (SQLite; every change is stored at once, so a workout survives the phone dying), `ui/`.
 - Test: `JAVA_HOME=~/.local/share/android-dev/jdk17 ANDROID_HOME=~/.local/share/android-dev/sdk ./gradlew testDebugUnitTest --offline`; add `SCREENSHOTS=1` to render screens to `app/build/screenshots`. Tests use Robolectric and an in-memory store.
