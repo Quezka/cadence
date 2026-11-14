@@ -1,5 +1,6 @@
 package io.github.quezka.cadence.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,12 +57,11 @@ fun GlassScreen(bar: @Composable () -> Unit, content: @Composable (PaddingValues
     var barPx by remember { mutableIntStateOf(0) }
     val top: Dp = with(density) { barPx.toDp() }
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().haze(haze)) {
+        Box(Modifier.fillMaxSize()) {
             content(PaddingValues(top = top, bottom = LocalBottomInset.current))
         }
-        Column(Modifier.fillMaxWidth().hazeChild(haze, glassStyle()).onSizeChanged { barPx = it.height }) {
+        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).onSizeChanged { barPx = it.height }) {
             bar()
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
         }
     }
 }

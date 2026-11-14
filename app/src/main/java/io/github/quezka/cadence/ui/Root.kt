@@ -161,7 +161,7 @@ private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: 
     // The bottom bar is glass: the tabs run under it and it blurs them.
     val tabsHaze = remember { HazeState() }
     Scaffold(bottomBar = {
-        NavigationBar(Modifier.hazeChild(tabsHaze, glassStyle()), containerColor = Color.Transparent) {
+        NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest) {
             NavigationBarItem(tab == Tab.TRAIN, { pick(Tab.TRAIN) }, { Icon(Icons.Filled.FitnessCenter, null) },
                 label = { Text(stringResource(R.string.tab_train)) })
             NavigationBarItem(tab == Tab.HISTORY, { pick(Tab.HISTORY) }, { Icon(Icons.Filled.History, null) },
@@ -172,7 +172,7 @@ private fun Home(store: GymStore, exercises: List<Exercise>, version: Int, tab: 
                 label = { Text(stringResource(R.string.tab_exercises)) })
         }
     }) { padding ->
-        Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize().haze(tabsHaze)) {
+        Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
           CompositionLocalProvider(LocalBottomInset provides padding.calculateBottomPadding()) {
             AnimatedContent(tab, transitionSpec = { Motion.tabs() }, label = "tab") { shown ->
                 when (shown) {

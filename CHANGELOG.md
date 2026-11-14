@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.0] - 2026-11-14
+
+- The suite's new **Material 3 tonal** look: solid bars instead of glass, a soft tonal background, darker text.
+
 ## [0.7.0] - 2026-11-09
 
 - Updates over the air: Settings shows the version and has "Check for updates". A newer release on GitHub is
