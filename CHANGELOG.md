@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.1] - 2026-11-15
+
+- **New icon**, drawn like every other Quezka app: the same rounded square in its own plain colour with a white symbol.
+
 ## [0.8.0] - 2026-11-14
 
 - The suite's new **Material 3 tonal** look: solid bars instead of glass, a soft tonal background, darker text.
