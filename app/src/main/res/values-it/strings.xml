@@ -203,4 +203,12 @@
     <string name="download_install">Scarica e installa</string>
     <string name="allow_installs">Permetti a Cadence di installare aggiornamenti</string>
     <string name="check_updates">Cerca aggiornamenti</string>
+    <string name="undo">Annulla</string>
+    <string name="exercise_removed">Esercizio tolto</string>
+    <string name="set_removed">Serie tolta</string>
+    <string name="try_more">Prova %1$s kg oggi (%2$d rip.): l\'ultima volta è andata bene</string>
+    <string name="try_same">Resta a %1$s kg (%2$d rip.) finché tutte le serie ci arrivano</string>
+    <string name="reps_minus">−1 rip.</string>
+    <string name="reps_plus">+1 rip.</string>
+    <string name="repeat_last">Ripeti l\'ultimo allenamento</string>
 </resources>

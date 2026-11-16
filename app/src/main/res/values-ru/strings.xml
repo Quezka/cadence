@@ -209,4 +209,12 @@
     <string name="download_install">Скачать и установить</string>
     <string name="allow_installs">Разрешить Cadence устанавливать обновления</string>
     <string name="check_updates">Проверить обновления</string>
+    <string name="undo">Отменить</string>
+    <string name="exercise_removed">Упражнение убрано</string>
+    <string name="set_removed">Подход убран</string>
+    <string name="try_more">Попробуй сегодня %1$s кг (%2$d повт.): в прошлый раз получилось</string>
+    <string name="try_same">Оставайся на %1$s кг (%2$d повт.), пока все подходы не получатся</string>
+    <string name="reps_minus">−1 повт.</string>
+    <string name="reps_plus">+1 повт.</string>
+    <string name="repeat_last">Повторить прошлую тренировку</string>
 </resources>

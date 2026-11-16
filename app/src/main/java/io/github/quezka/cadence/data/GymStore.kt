@@ -213,8 +213,20 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
             last?.seconds ?: if (kind == ExerciseKind.TIME) 60 else if (kind == ExerciseKind.CARDIO) 1800 else 0, last?.meters ?: 0)
     }
 
-    fun removeExerciseFromWorkout(workoutId: Long, exerciseId: Long) {
+    /** Removes the exercise's sets from the workout; returns them, for Undo. */
+    fun removeExerciseFromWorkout(workoutId: Long, exerciseId: Long): List<WorkoutSet> {
+        val gone = setsOf(workoutId).filter { it.exerciseId == exerciseId }
         db.delete("sets", "workout_id = ? AND exercise_id = ?", arrayOf(workoutId.toString(), exerciseId.toString()))
+        changed()
+        return gone
+    }
+
+    /** Undo: puts removed sets back as they were. */
+    fun restoreSets(sets: List<WorkoutSet>) {
+        for (s in sets) db.insertOrThrow("sets", null, ContentValues().apply {
+            put("workout_id", s.workoutId); put("exercise_id", s.exerciseId); put("position", s.position)
+            put("grams", s.grams); put("reps", s.reps); put("done", if (s.done) 1 else 0); put("seconds", s.seconds); put("meters", s.meters)
+        })
         changed()
     }
 
@@ -248,10 +260,16 @@ class GymStore(context: Context, fileName: String? = "cadence.db", private val n
         changed()
     }
 
-    fun deleteSet(id: Long) {
+    /** Deletes a set; returns it, for Undo. */
+    fun deleteSet(id: Long): WorkoutSet? {
+        val gone = db.rawQuery("SELECT * FROM sets WHERE id = ?", arrayOf(id.toString())).all { aSet() }.firstOrNull()
         db.delete("sets", "id = ?", arrayOf(id.toString()))
         changed()
+        return gone
     }
+
+    /** The last finished workout, for Train's "Repeat last workout". */
+    fun lastWorkout(): Workout? = history(1).firstOrNull()
 
     /** Finish it: sets left unticked weren't done, so they go. A workout with nothing done goes altogether. */
     fun finish(id: Long): Boolean {

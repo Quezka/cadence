@@ -67,28 +67,16 @@ import androidx.core.app.NotificationManagerCompat
 import io.github.quezka.cadence.CadenceApp
 import io.github.quezka.cadence.MainActivity
 import io.github.quezka.cadence.R
+import io.github.quezka.cadence.rest.RestAlarm
 import io.github.quezka.cadence.data.GymStore
 import io.github.quezka.cadence.domain.Exercise
 import io.github.quezka.cadence.domain.ExerciseKind
 import io.github.quezka.cadence.domain.Gym
 import io.github.quezka.cadence.domain.WorkoutSet
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** The rest is over: a buzz, and a notification in case the phone is in a pocket. */
-private fun restOver(context: Context) {
-    val vibrator = if (Build.VERSION.SDK_INT >= 31) context.getSystemService(VibratorManager::class.java).defaultVibrator
-    else @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300), -1))
-    val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java)
-        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
-    runCatching {
-        NotificationManagerCompat.from(context).notify(1, NotificationCompat.Builder(context, CadenceApp.REST_CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification).setContentTitle(context.getString(R.string.rest_over))
-            .setContentText(context.getString(R.string.rest_over_text)).setContentIntent(open).setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH).build())
-    }  // no permission: the buzz is enough
-}
-
 /** A workout under way or, for one already finished ([Workout.finished] set), the same page to correct it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,11 +94,20 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
     var restLength by rememberSaveable { mutableLongStateOf(90L) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     val leaveEdit = { store.finish(workoutId); close() }  // a set added and left unticked isn't kept
+    // removing a set or an exercise: gone at once, with Undo (no "are you sure?")
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val undo: (String, () -> Unit) -> Unit = { message, back ->
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            if (snackbar.showSnackbar(message, context.getString(R.string.undo), duration = androidx.compose.material3.SnackbarDuration.Short)
+                == androidx.compose.material3.SnackbarResult.ActionPerformed) back()
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
             val next = System.currentTimeMillis() / 1000
-            if (restUntil in (now + 1)..next) restOver(context)
             now = next
             delay(1000)
         }
@@ -142,17 +139,21 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
             }
         }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearBar, scrolledContainerColor = ClearBar))
         val left = restUntil - now
-        if (left > 0) RestBar(left, restLength, { restUntil += 30; restLength += 30 }, { restUntil -= 15 }, { restUntil = 0 })
+        if (left > 0) RestBar(left, restLength,
+            { restUntil += 30; restLength += 30; RestAlarm.start(context, restUntil * 1000) },
+            { restUntil -= 15; if (restUntil <= now) RestAlarm.cancel(context) else RestAlarm.start(context, restUntil * 1000) },
+            { restUntil = 0; RestAlarm.cancel(context) })
        }
       }) { glass ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(glass).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (workout.sets.isEmpty()) Hint(stringResource(R.string.workout_empty))
             for ((exerciseId, sets) in workout.sets.groupBy { it.exerciseId }) {
                 val exercise = exercises.firstOrNull { it.id == exerciseId } ?: continue
-                ExerciseCard(store, workoutId, exercise, sets) {
+                ExerciseCard(store, workoutId, exercise, sets, undo) {
                     if (!editing) {
                         restLength = store.restSeconds().toLong()
                         restUntil = System.currentTimeMillis() / 1000 + restLength
+                        RestAlarm.start(context, restUntil * 1000)
                     }
                 }
             }
@@ -162,6 +163,9 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
                 label = { Text(stringResource(R.string.note)) }, placeholder = { Text(stringResource(R.string.note_hint)) })
         }
       }
+    }
+    Box(Modifier.fillMaxSize().navigationBarsPadding().imePadding(), contentAlignment = Alignment.BottomCenter) {
+        androidx.compose.material3.SnackbarHost(snackbar, Modifier.padding(16.dp))
     }
     if (picking) ExercisePicker(store, exercises, { picking = false }) { store.addExerciseToWorkout(workoutId, it); picking = false }
     if (discarding) AlertDialog(onDismissRequest = { discarding = false }, title = { Text(stringResource(R.string.discard_title)) },
@@ -184,8 +188,9 @@ fun WorkoutScreen(store: GymStore, workoutId: Long, exercises: List<Exercise>, v
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     for ((id, set) in records.distinctBy { it.first }) {
-                        val name = exercises.firstOrNull { it.id == id }?.title(context).orEmpty()
-                        Text("$name: ${Gym.showKg(set.grams)} kg × ${set.reps}", style = MaterialTheme.typography.bodyLarge)
+                        val exercise = exercises.firstOrNull { it.id == id }
+                        val name = exercise?.title(context).orEmpty()
+                        Text("$name: ${shortSet(set, exercise?.kind ?: ExerciseKind.WEIGHT)}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }, confirmButton = { TextButton(onClick = close) { Text(stringResource(R.string.nice)) } })
@@ -214,18 +219,28 @@ private fun shortSet(s: WorkoutSet, kind: ExerciseKind): String = when (kind) {
 }
 
 @Composable
-private fun ExerciseCard(store: GymStore, workoutId: Long, exercise: Exercise, sets: List<WorkoutSet>, rest: () -> Unit) {
+private fun ExerciseCard(store: GymStore, workoutId: Long, exercise: Exercise, sets: List<WorkoutSet>,
+                         undo: (String, () -> Unit) -> Unit, rest: () -> Unit) {
     val context = LocalContext.current
     val last = remember(exercise.id) { store.lastSets(exercise.id).filter { it.workoutId != workoutId } }
+    // what to lift today: last time's top weight, +2.5 kg if every top set reached the reps (Gym.nextWeight)
+    val target = sets.firstOrNull()?.reps?.takeIf { it > 0 } ?: 8
+    val suggest = if (exercise.kind == ExerciseKind.WEIGHT) Gym.nextWeight(last, target) else null
+    val lastTop = last.filter { it.done }.maxOfOrNull { it.grams } ?: 0
     var plates by remember { mutableStateOf(false) }
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(exercise.title(context), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            IconButton(onClick = { store.removeExerciseFromWorkout(workoutId, exercise.id) }) {
+            IconButton(onClick = {
+                val gone = store.removeExerciseFromWorkout(workoutId, exercise.id)
+                undo(context.getString(R.string.exercise_removed)) { store.restoreSets(gone) }
+            }) {
                 Icon(Icons.Filled.Delete, stringResource(R.string.remove_exercise))
             }
         }
-        sets.sortedBy { it.position }.forEachIndexed { i, s -> SetRow(store, i + 1, s, exercise.kind, last.getOrNull(i), rest) }
+        if (suggest != null && suggest > 0) Hint(stringResource(if (suggest > lastTop) R.string.try_more else R.string.try_same,
+            Gym.showKg(suggest), target))
+        sets.sortedBy { it.position }.forEachIndexed { i, s -> SetRow(store, i + 1, s, exercise.kind, last.getOrNull(i), undo, rest) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = {
                 val previous = sets.maxByOrNull { it.position }
@@ -257,20 +272,22 @@ private fun PlatesDialog(grams: Int, close: () -> Unit) {
 }
 
 @Composable
-private fun SetRow(store: GymStore, number: Int, set: WorkoutSet, kind: ExerciseKind, last: WorkoutSet?, rest: () -> Unit) {
+private fun SetRow(store: GymStore, number: Int, set: WorkoutSet, kind: ExerciseKind, last: WorkoutSet?,
+                   undo: (String, () -> Unit) -> Unit, rest: () -> Unit) {
     // A set that's done stands out, so you can see at a glance where you are.
     val tint = if (set.done) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
     Column(Modifier.fillMaxWidth().background(tint, RoundedCornerShape(14.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
         when (kind) {
-            ExerciseKind.WEIGHT -> WeightFields(store, number, set, last, rest)
-            ExerciseKind.TIME -> TimedFields(store, number, set, last, false, rest)
-            ExerciseKind.CARDIO -> TimedFields(store, number, set, last, true, rest)
+            ExerciseKind.WEIGHT -> WeightFields(store, number, set, last, undo, rest)
+            ExerciseKind.TIME -> TimedFields(store, number, set, last, false, undo, rest)
+            ExerciseKind.CARDIO -> TimedFields(store, number, set, last, true, undo, rest)
         }
     }
 }
 
 @Composable
-private fun WeightFields(store: GymStore, number: Int, set: WorkoutSet, last: WorkoutSet?, rest: () -> Unit) {
+private fun WeightFields(store: GymStore, number: Int, set: WorkoutSet, last: WorkoutSet?, undo: (String, () -> Unit) -> Unit,
+                         rest: () -> Unit) {
     var kg by remember(set.id) { mutableStateOf(if (set.grams > 0) Gym.showKg(set.grams) else "") }
     var reps by remember(set.id) { mutableStateOf(set.reps.toString()) }
     val grams = Gym.parseKg(kg)
@@ -294,17 +311,25 @@ private fun WeightFields(store: GymStore, number: Int, set: WorkoutSet, last: Wo
             if (on) rest()
         }
     }
+    fun repsBy(by: Int) {
+        val next = ((count ?: 0) + by).coerceIn(1, Gym.MAX_REPS)
+        reps = next.toString()
+        if (grams != null) store.updateSet(set.id, grams, next, set.done)
+    }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = { step(-Gym.STEP_GRAMS) }) { Text("−2.5") }
         TextButton(onClick = { step(Gym.STEP_GRAMS) }) { Text("+2.5") }
+        TextButton(onClick = { repsBy(-1) }) { Text(stringResource(R.string.reps_minus)) }
+        TextButton(onClick = { repsBy(1) }) { Text(stringResource(R.string.reps_plus)) }
         Spacer(Modifier.weight(1f))
         last?.let { Hint(stringResource(R.string.last_short, shortSet(it, ExerciseKind.WEIGHT))) }
-        RemoveSet(store, set)
+        RemoveSet(store, set, undo)
     }
 }
 
 @Composable
-private fun TimedFields(store: GymStore, number: Int, set: WorkoutSet, last: WorkoutSet?, cardio: Boolean, rest: () -> Unit) {
+private fun TimedFields(store: GymStore, number: Int, set: WorkoutSet, last: WorkoutSet?, cardio: Boolean,
+                        undo: (String, () -> Unit) -> Unit, rest: () -> Unit) {
     // Cardio is counted in minutes and km, something held in seconds.
     val unit = if (cardio) 60 else 1
     var time by remember(set.id) { mutableStateOf(if (set.seconds > 0) (set.seconds / unit).toString() else "") }
@@ -328,7 +353,7 @@ private fun TimedFields(store: GymStore, number: Int, set: WorkoutSet, last: Wor
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.weight(1f))
         last?.let { Hint(stringResource(R.string.last_short, shortSet(it, if (cardio) ExerciseKind.CARDIO else ExerciseKind.TIME))) }
-        RemoveSet(store, set)
+        RemoveSet(store, set, undo)
     }
 }
 
@@ -338,6 +363,9 @@ private fun DoneButton(done: Boolean, valid: Boolean, change: (Boolean) -> Unit)
 }
 
 @Composable
-private fun RemoveSet(store: GymStore, set: WorkoutSet) {
-    IconButton(onClick = { store.deleteSet(set.id) }) { Icon(Icons.Filled.Close, stringResource(R.string.delete)) }
+private fun RemoveSet(store: GymStore, set: WorkoutSet, undo: (String, () -> Unit) -> Unit) {
+    val context = LocalContext.current
+    IconButton(onClick = {
+        store.deleteSet(set.id)?.let { gone -> undo(context.getString(R.string.set_removed)) { store.restoreSets(listOf(gone)) } }
+    }) { Icon(Icons.Filled.Close, stringResource(R.string.delete)) }
 }

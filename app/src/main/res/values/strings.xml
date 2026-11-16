@@ -203,4 +203,12 @@
     <string name="download_install">Download and install</string>
     <string name="allow_installs">Allow Cadence to install updates</string>
     <string name="check_updates">Check for updates</string>
+    <string name="undo">Undo</string>
+    <string name="exercise_removed">Exercise removed</string>
+    <string name="set_removed">Set removed</string>
+    <string name="try_more">Try %1$s kg today (%2$d reps): last time went well</string>
+    <string name="try_same">Stay at %1$s kg (%2$d reps) until every set gets there</string>
+    <string name="reps_minus">−1 rep</string>
+    <string name="reps_plus">+1 rep</string>
+    <string name="repeat_last">Repeat last workout</string>
 </resources>

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.0] - 2026-11-16
+
+- **The rest timer works with the screen off:** a countdown sits in the notification shade while you rest, and the buzz comes on time even if you've switched to another app.
+- **What to lift today:** each exercise says it ("Try 62.5 kg today: last time went well", or stay at the same weight until every set gets there), in free workouts too.
+- **Repeat last workout** in one tap on Train.
+- **±1 rep** buttons next to ±2.5 kg, so you rarely need the keyboard.
+- Removing a set or an exercise has **Undo** instead of being gone for good.
+- New records show the right unit for timed and cardio exercises.
+
 ## [0.8.1] - 2026-11-15
 
 - **New icon**, drawn like every other Quezka app: the same rounded square in its own plain colour with a white symbol.

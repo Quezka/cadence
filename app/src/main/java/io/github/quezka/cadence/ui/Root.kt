@@ -226,6 +226,24 @@ TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
                         }
                     }
                 }
+                // one tap to do last time again (ADHD: no choosing)
+                val last = history.firstOrNull()
+                if (active == null && last != null) item {
+                    Card(onClick = { open(store.start(last.name, Routine(0, last.name, store.routineFrom(last)))) },
+                        shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.repeat_last), style = MaterialTheme.typography.labelMedium)
+                                Text(last.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            FilledIconButton(onClick = { open(store.start(last.name, Routine(0, last.name, store.routineFrom(last)))) }) {
+                                Icon(Icons.Filled.PlayArrow, stringResource(R.string.repeat_last))
+                            }
+                        }
+                    }
+                }
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SectionTitle(stringResource(R.string.routines), Modifier.weight(1f))
